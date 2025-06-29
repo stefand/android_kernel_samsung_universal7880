@@ -2070,7 +2070,7 @@ static int filename_lookup(int dfd, struct filename *name,
 	if (likely(!retval))
 		audit_inode(name, nd->path.dentry, flags & LOOKUP_PARENT);
 #ifdef CONFIG_KSU_SUSFS_SUS_PATH
-       if (!retval && path->dentry->d_inode && unlikely(path->dentry->d_inode->i_state & INODE_STATE_SUS_PATH) && likely(current->susf>
+       if (!retval && nd->path.dentry->d_inode && unlikely(nd->path.dentry->d_inode->i_state & INODE_STATE_SUS_PATH) && likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC)) {
                putname(name);
                return -ENOENT;
        }
@@ -2401,9 +2401,9 @@ path_mountpoint(int dfd, const char *name, struct path *path, unsigned int flags
 		put_link(&nd, &link, cookie);
 	}
 #ifdef CONFIG_KSU_SUSFS_SUS_PATH
-	if (!IS_ERR(dentry) && dentry->d_inode && unlikely(dentry->d_inode->i_state & INODE_STATE_SUS_PATH) && likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC)) {
-		dput(dentry);
-		return ERR_PTR(-ENOENT);
+	if (!IS_ERR(path->dentry) && path->dentry->d_inode && unlikely(path->dentry->d_inode->i_state & INODE_STATE_SUS_PATH) && likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC)) {
+		dput(path->dentry);
+		return -ENOENT;
 	}
 #endif
 out:
@@ -2553,7 +2553,7 @@ static inline int may_create(struct vfsmount *mnt, struct inode *dir, struct den
 #endif
 	audit_inode_child(dir, child, AUDIT_TYPE_CHILD_CREATE);
 #ifdef CONFIG_KSU_SUSFS_SUS_PATH
-       if (child->d_inode && unlikely(child->d_inode->i_state & INODE_STATE_SUS_PATH) && likely(current->susfs_task_state & TASK_STRUC>
+	if (child->d_inode && unlikely(child->d_inode->i_state & INODE_STATE_SUS_PATH) && likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC)) {
                error = inode_permission2(mnt, dir, MAY_WRITE | MAY_EXEC);
                if (error) {
                        return error;
@@ -2733,7 +2733,7 @@ static int may_o_create(struct path *dir, struct dentry *dentry, umode_t mode)
        int error;
 #ifdef CONFIG_KSU_SUSFS_SUS_PATH
 
-       if (dentry->d_inode && unlikely(dentry->d_inode->i_state & INODE_STATE_SUS_PATH) && likely(current->susfs_task_state & TASK_STR>
+	if (dentry->d_inode && unlikely(dentry->d_inode->i_state & INODE_STATE_SUS_PATH) && likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC)) {
                error = inode_permission2(dir->mnt, dir->dentry->d_inode, MAY_WRITE | MAY_EXEC);
                if (error) {
                        return error;
@@ -2951,7 +2951,7 @@ static int lookup_open(struct nameidata *nd, struct path *path,
 	/* Cached positive dentry: will open in f_op->open */
 	if (!need_lookup && dentry->d_inode) {
 #ifdef CONFIG_KSU_SUSFS_SUS_PATH
-               if (unlikely(dentry->d_inode->i_state & INODE_STATE_SUS_PATH) && likely(current->susfs_task_state & TASK_STRUCT_NON_ROO>
+		if (dentry->d_inode && unlikely(dentry->d_inode->i_state & INODE_STATE_SUS_PATH) && likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC)) {
                        dput(dentry);
                        return -ENOENT;
                }
@@ -3406,15 +3406,15 @@ struct file *do_filp_open(int dfd, struct filename *pathname,
        if (!IS_ERR(filp) && unlikely(filp->f_inode->i_state & INODE_STATE_OPEN_REDIRECT) && current_uid().val < 2000) {
                fake_pathname = susfs_get_redirected_path(filp->f_inode->i_ino);
                if (!IS_ERR(fake_pathname)) {
-                       restore_nameidata();
+                       //restore_nameidata();
                        filp_close(filp, NULL);
                        // no need to do `putname(pathname);` here as it will be done by calling process
-                       set_nameidata(&nd, dfd, fake_pathname);
-                       filp = path_openat(&nd, op, flags | LOOKUP_RCU);
+                       //set_nameidata(&nd, dfd, fake_pathname);
+                       filp = path_openat(dfd, fake_pathname, &nd, op, flags | LOOKUP_RCU);
                        if (unlikely(filp == ERR_PTR(-ECHILD)))
-                               filp = path_openat(&nd, op, flags);
+                               filp = path_openat(dfd, fake_pathname, &nd, op, flags);
                        if (unlikely(filp == ERR_PTR(-ESTALE)))
-                               filp = path_openat(&nd, op, flags | LOOKUP_REVAL);
+                               filp = path_openat(dfd, fake_pathname, &nd, op, flags | LOOKUP_REVAL);
                        //restore_nameidata();
                        putname(fake_pathname);
                        return filp;
