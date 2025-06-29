@@ -122,15 +122,15 @@ static int inotify_fdinfo(struct seq_file *m, struct fsnotify_mark *mark)
 			if (kern_path(dpath, 0, &path)) {
 				goto out_free_pathname;
 			}
-			seq_printf(m, "inotify wd:%x ino:%lx sdev:%x mask:%x ignored_mask:%x ",
+			ret = seq_printf(m, "inotify wd:%x ino:%lx sdev:%x mask:%x ignored_mask:%x ",
 			   inode_mark->wd, path.dentry->d_inode->i_ino, path.dentry->d_inode->i_sb->s_dev,
 			   mask, mark->ignored_mask);
-			show_mark_fhandle(m, path.dentry->d_inode);
-			seq_putc(m, '\n');
+			ret |= show_mark_fhandle(m, path.dentry->d_inode);
+			ret |= seq_putc(m, '\n');
 			iput(inode);
 			path_put(&path);
 			kfree(pathname);
-			return;
+			return ret;
 out_free_pathname:
 			kfree(pathname);
 		}
