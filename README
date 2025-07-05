@@ -1,12 +1,12 @@
 = a5y17lte ksu + susfs =
 
-A kernel for the Samsung Galaxy A5 2017 (a5y17lte) running LineageOS with
-KernelSU + SUSFS.
+A kernel for the Samsung Galaxy A5 2017 (a5y17lte) running LineageOS with KernelSU + SUSFS. Tested
+against the last official LOS release for this device (LOS 18.1).
 
 == Very coarse instructions on how to use: ==
 0) Ideally build it yourself, don't trust my binaries.
 
-1) Flash boot.img to the BOOT partition and reboot
+1) Flash boot-a5y17lte-susfs4su.img to the BOOT partition and reboot
 
 2) Install the KernelSU manager app from https://github.com/backslashxx/KernelSU
 I used v1.0.5-23. A later version is probably OK too.
@@ -27,20 +27,43 @@ Backslashxx's KernelSU backport from https://github.com/backslashxx/KernelSU, fo
 the patch instructions from https://github.com/backslashxx/KernelSU/issues/20 .
 
 SUSFS from https://gitlab.com/simonpunk/susfs4ksu/ , branch kernel-4.9. A lot of manual patching,
-that most likely has some bugs.
+that most likely has some bugs. The KSU patch is from the gki-android12-5.10 to match the newer
+KernelSU in backslashxx's backport.
 
 For building the kernel I roughly followed the instruction from https://thedoc.eu.org/blog/lineage-os-20-kernel-wireguard-module/ , just without the wireguard parts.
 
 boot.img repackaged from the original LineageOS one with https://github.com/PinNaCode/magiskboot_build .
 I didn't manage to build this tool, so I ran the provided Windows build in Wine.
 
+== Known bugs ==
+KernelSU does not remember the applications granted su over reboots. You have to re-configure them
+every time you restart the phone. The reason is that selinux prevents access to /data/adb/ksu/.allowlist
+for some reason. I got around this problem by changing the owner to system:system and mode 666. KSU
+now writes to it but on the next boot it is still empty.
+
 == Build it yourself ==
 1) Check out this repo
 2) Check out the KernelSU submodule
 3) Fetch aarch64-linux-android-gcc (I used prebuilts from google for Android 4.9), make sure it is in $PATH.
 4) Run defconfig based on lineage-a5y17lte_defconfig (FIXME: Describe this better)
-5) My build command line was make -j 4 O=../build ARCH=arm64 CROSS_COMPILE=aarch64-linux-android- CLANG_TRIPLE=aarch64-linux-gnu- BRAND_SHOW_FLAG=samsung TARGET_PRODUCT=a5y17lte . The CLANG_TRIPLE is probably redundant, and unlike the earlier build instructions I did not set CC=clang - it caused build failures, most likely because my system clang is relatively new and the 3.18 kernel pretty dated.
+5) My build command line was
+
+make -j 4 O=../build ARCH=arm64 CROSS_COMPILE=aarch64-linux-android- CLANG_TRIPLE=aarch64-linux-gnu- BRAND_SHOW_FLAG=samsung TARGET_PRODUCT=a5y17lte
+
+The CLANG_TRIPLE is probably redundant, and unlike the earlier build instructions I did not set CC=clang - it caused build failures, most likely because my system clang is relatively new and the 3.18 kernel pretty dated.
 6) Pack arch/arm64/boot/Image into your boot.img with magiskboot.
+
+== More fine tuning ==
+
+I rebuilt the KernelSU manager app to rename it to something different. One of the applications I
+want to run detects ReZygisk and ZygiskNext, so I can't use them. That means no LSPosed, which means
+no HideMyApplist, so I have to hide KernelSU the old school way. Essentially do a search+replace
+from me.weishu.kernelsu to me.somethingelse.whatever in KernelSU/Manager, the same for
+me_weishu_kernelsu and rename directories accordingly, then rebuild the manager with grade.
+
+None of the applications I need care about Strong integrity, and I don't know if that's even possible
+with this device as it shipped with Android 6. With TrickyStore + TrickyAddon + SuSFS4KSU addons and
+one of the leaked (and revoked) keyboxes I made the standard checks in native detector happy.
 
 ---------------------------------------------------------------------------------------------------
 
